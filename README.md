@@ -1,44 +1,49 @@
-# 📘 Ứng Dụng Học Tiếng Trung - Từ Điển Của Bạn Học Lưu (GitHub Pages)
+# Hướng Dẫn Cài Đặt & Cập Nhật Từ Điển Tiếng Trung Bạn Học Lưu
 
-Ứng dụng web học từ vựng tiếng Trung qua **Câu chuyện chiết tự**, sử dụng tông màu **Xanh Dương** chủ đạo và tự động hiển thị chữ Hán bằng font **`Pinyinfont_V2.ttf`** (Le Minh Duc Pinyin V2 - có sẵn Pinyin phía trên mỗi chữ Hán).
+Ứng dụng web học tiếng Trung tích hợp:
 
-## 📂 Cấu trúc bộ file trong gói GitHub Pages
-- `index.html`: Giao diện chính của ứng dụng (Từ điển, Thêm từ mới, Bảng điền nội dung ứng với từ, Luyện tập điền từ & Flashcard, Quản lý dữ liệu).
-- `vocab_data.js`: File dữ liệu 511 từ vựng đã được chuẩn hóa từ Google Sheet *"Bản sao của Bản sao của Từ điển của bạn học Lưu"*. Trang web tự động nạp file này khi mở.
-- `vocab_data.json`: File dữ liệu định dạng JSON chuẩn để sao lưu hoặc tích hợp.
-- `Pinyinfont_V2.woff2` (2.5 MB) & `Pinyinfont_V2.ttf` (10.5 MB): Font chữ tiếng Trung kèm Pinyin trên đầu chữ (áp dụng tự động cho mọi ký tự chữ Hán qua `unicode-range`).
+* **Font Le Minh Duc Pinyin V2** (`Pinyinfont_V2.ttf`) tự động hiển thị chữ Hán kèm phiên âm Pinyin trên đầu.
 
-## 🚀 Hướng dẫn cài đặt lên GitHub Pages (Miễn phí 100%)
+* **HanziWriter Nét Bút**: Xem thứ tự nét và tập viết trên khung Mễ Tự Cách (米字格) chuẩn.
 
-### Bước 1: Tạo Repository mới trên GitHub
-1. Truy cập [https://github.com/new](https://github.com/new).
-2. Đặt tên tại ô **Repository name** (ví dụ: `hoc-tieng-trung` hoặc `tu-dien-luu`).
-3. Chọn **Public** → bấm **Create repository**.
+* **48 Tranh Minh Họa Chiết Tự**: Trích xuất trực tiếp từ file Google Sheet gốc.
 
-### Bước 2: Tải các file trong thư mục này lên Repository
-1. Trong trang repository vừa tạo, bấm vào dòng chữ **uploading an existing file** (hoặc bấm nút **Add file** → **Upload files**).
-2. Kéo thả toàn bộ các file trong gói này vào:
-   - `index.html`
-   - `vocab_data.js`
-   - `vocab_data.json`
-   - `Pinyinfont_V2.woff2`
-   - `Pinyinfont_V2.ttf`
-   - `README.md`
-3. Ở ô bên dưới, bấm nút màu xanh **Commit changes**.
+* **Ôn tập SRS (SM-2)**: Hệ thống lặp lại ngắt quãng khoa học.
 
-### Bước 3: Kích hoạt GitHub Pages
-1. Trên thanh công cụ của repository, bấm vào tab **Settings** (biểu tượng bánh răng).
-2. Ở menu bên trái, bấm vào mục **Pages**.
-3. Tại phần **Build and deployment** → mục **Branch**, đổi từ `None` sang **`main`** (hoặc `master`), giữ nguyên thư mục **`/ (root)`**, rồi bấm **Save**.
-4. Chờ khoảng 30–60 giây và tải lại trang. GitHub sẽ hiển thị đường dẫn web của bạn:
-   `https://<tên-tài-khoản-github>.github.io/<tên-repository>/`
+* **Tự Động Gợi Ý Pinyin**: Tự động điền Pinyin khi nhập chữ Hán kèm nút chuyển chế độ nhập thủ công.
 
-## 🔄 Cách thêm từ mới, điền nội dung và cập nhật dữ liệu cố định lên GitHub Pages
-1. Mở trang web của bạn → vào mục **➕ Thêm từ & Điền nội dung**.
-2. Bạn có thể:
-   - **Thêm từ mới đầy đủ** (có hỗ trợ tự đổi số thành dấu Pinyin, ví dụ gõ `xue2 xi2` → `xué xí` và xem trước chữ Hán bằng font Pinyin V2).
-   - Hoặc **Thêm nhanh danh sách chữ Hán** trước, sau đó chuyển sang tab **📝 Bảng điền nội dung cho từ** để điền Pinyin, Hán Việt, Từ loại, Nghĩa, Câu chuyện từ vựng và Ví dụ ứng với từng từ.
-3. Mọi thay đổi được lưu ngay lập tức vào bộ nhớ trình duyệt (`localStorage`) của máy bạn.
-4. Khi muốn cập nhật bộ từ mới lên GitHub Pages cho tất cả mọi người/thiết bị khác cùng thấy:
-   - Vào tab **💾 File Dữ liệu & GitHub Pages** → bấm nút **⬇️ Tải vocab_data.js**.
-   - Vào repository trên GitHub → bấm **Add file → Upload files** → kéo file `vocab_data.js` vừa tải vào để ghi đè lên file cũ → bấm **Commit changes**.
+## 1. Cách Đưa Web Lên GitHub Pages Lần Đầu Tiên
+
+1. Giải nén file `hoc_tieng_trung_github_pages.zip`.
+
+2. Truy cập [github.com/new](https://github.com/new) tạo repository mới (chọn chế độ **Public**).
+
+3. Nhấp **Upload files** và kéo thả tất cả các file trong thư mục vừa giải nén lên GitHub:
+
+   * `index.html`
+
+   * `vocab_data.js`
+
+   * `Pinyinfont_V2.ttf`
+
+   * Thư mục `images/` (chứa 48 tranh chiết tự)
+
+4. Nhấp **Commit changes**.
+
+5. Vào **Settings** -> **Pages** (ở cột bên trái).
+
+6. Tại mục **Branch**, chọn nhánh `main` (hoặc `master`), thư mục `/ (root)` rồi bấm **Save**.
+
+7. Đợi 30–60 giây, trang web của bạn sẽ hoạt động tại địa chỉ: `https://<ten-user>.github.io/<ten-repo>/`
+
+## 2. Cách Cập Nhật Từ Mới & Nội Dung Về Sau
+
+1. Mở trang web của bạn, vào mục **"Thêm từ & Điền nội dung"**.
+
+2. Nhập từ mới (hệ thống sẽ tự điền Pinyin, bạn có thể chỉnh sửa Hán Việt, nghĩa, câu chuyện chiết tự).
+
+3. Bấm nút **"⬇️ Tải vocab_data.js"** ở đầu trang web hoặc trong Bảng điền nội dung.
+
+4. Truy cập vào repository trên GitHub của bạn, tải file `vocab_data.js` mới lên đè vào file cũ.
+
+5. Bấm **Commit changes**. Toàn bộ từ mới và nội dung sửa đổi sẽ được cập nhật ngay lập tức trên trang web online!
