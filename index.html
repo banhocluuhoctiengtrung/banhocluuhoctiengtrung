@@ -1590,17 +1590,32 @@
           utter.rate = 0.85;      // đọc chậm hơn (1 = tốc độ bình thường)
           utter.volume = 1;      // to nhất mà trình duyệt cho phép
           utter.pitch = 1;
-          try {
-            const vs = window.speechSynthesis.getVoices() || [];
-            const ranked = vs.filter(function(x) { return /^(zh[-_]CN|cmn(?:[-_]|$)|zh[-_]Hans)/i.test(x.lang); }).sort(function(a, b) {
-              function score(v) { return (/natural|xiaoxiao|xiaoyi|tingting|google.*普通话|google.*mandarin/i.test(v.name) ? 10 : 0) + (/^zh[-_]CN$/i.test(v.lang) ? 3 : 0); }
-              return score(b) - score(a);
-            });
-            const v = ranked[0];
-            if (v) utter.voice = v;
-          } catch (e) {}
+          const vs = window.speechSynthesis.getVoices() || [];
+          const ranked = vs.filter(function(v) {
+            const lang = String(v.lang || '').replace(/_/g, '-').toLowerCase();
+            const name = String(v.name || '');
+            // Explicitly reject Cantonese and other regional Chinese voices.
+            if (/cantonese|yue|hong.?kong|taiwan|廣東|广东|粤语|粵語/i.test(name) || /(?:^yue|-(?:hk|tw|mo)(?:-|$))/.test(lang)) return false;
+            return /^(?:zh-cn|zh-hans(?:-cn)?|cmn(?:-cn|-hans(?:-cn)?)?)$/.test(lang);
+          }).sort(function(a, b) {
+            function score(v) {
+              return (/xiaoxiao|xiaoyi|google.*(?:普通话|mandarin|chinese)|tingting|ting-ting/i.test(v.name) ? 20 : 0)
+                + (/natural|premium|enhanced/i.test(v.name) ? 5 : 0)
+                + (/^zh[-_]CN$/i.test(v.lang) ? 3 : 0);
+            }
+            return score(b) - score(a);
+          });
+          if (!ranked.length) {
+            showToast(vs.length ? 'Thiết bị chưa có giọng Trung phổ thông (Trung Quốc). Hãy bật hoặc cài giọng Mandarin / Chinese (China) trên thiết bị rồi mở lại trình duyệt.' : 'Giọng đọc chưa tải xong. Chờ một chút rồi bấm nút 🔊 để thử lại.', '🔊');
+            return; // Never let a different default language read the word.
+          }
+          utter.voice = ranked[0];
+          utter.lang = ranked[0].lang;
+          utter.onerror = function(e) {
+            if (e.error !== 'canceled' && e.error !== 'interrupted') showToast('Chưa phát được giọng Trung phổ thông. Hãy bấm 🔊 để thử lại hoặc kiểm tra giọng đọc của thiết bị.', '🔊');
+          };
           window.speechSynthesis.speak(utter);
-          if (!silent) showToast('Đang phát âm: ' + toSpeak, '🔊');
+          // Phát âm bình thường không hiển thị thông báo.
         } catch (e) {
           showToast('Trình duyệt không hỗ trợ đọc âm thanh lúc này.', 'ℹ️');
         }
