@@ -4301,31 +4301,112 @@
     }
 
     // ----- Phiên học -----
+    var newLesson = null;
     function openNewWordsLesson() {
-      // Reuse an active lesson rather than discard answers already in progress.
-      const previous = srsSession && srsSession.active ? srsSession : null;
       practiceMode = 'srs';
       switchMainTab('practice');
-      if (previous) {
-        srsSession = previous;
-        showSrsPanel('session');
-        showToast('Bạn đang có một phiên học. Hãy hoàn thành hoặc kết thúc phiên trước khi bắt đầu bài mới.', '🌱');
-        return;
-      }
-      const queue = srsNewPool().map(function(it) { return it.id; });
-      if (!queue.length) {
-        showToast('Đã hết từ mới có đủ nội dung để học. Thêm từ hoặc bổ sung nghĩa để học tiếp.', '🌱');
-        return;
-      }
-      srsSession = { mode: 'new', active: true, queue: queue, total: queue.length, done: 0, reviewed: 0, good: 0, learnedNew: 0, current: null, q: null, answered: false, qStart: 0, wrong: {} };
-      const btn = document.getElementById('nav-tab-new');
-      const review = document.getElementById('nav-tab-practice');
-      if (btn && review) { btn.className = review.className; review.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-blue-100 hover:bg-white/10 flex items-center gap-1.5'; }
+      if (newLesson) { showSrsPanel('session'); newLessonRender(); return; }
+      if (srsSession && srsSession.active) { showSrsPanel('session'); showToast('Hãy kết thúc lượt ôn đang học trước.', '🌱'); return; }
+      const items = srsNewPool().slice(0, 10);
+      if (!items.length) { showToast('Đã hết từ mới có đủ nội dung để học!', '🌱'); return; }
+      newLesson = { items: items, intro: 0, stage: 'intro', tasks: [], index: 0, attempts: 0, correct: 0, retries: {}, answered: false, picked: null, matched: [] };
+      items.forEach(function(it) { newLesson.tasks.push({id: it.id, type: 'choice'}); });
+      items.forEach(function(it) { newLesson.tasks.push({id: it.id, type: 'write'}); });
+      for (let i = 0; i < items.length; i += 4) newLesson.tasks.push({type: 'match', ids: items.slice(i, i + 4).map(function(it) { return it.id; })});
       showSrsPanel('session');
-      srsShowCurrent();
+      newLessonRender();
+    }
+    function newLessonButton(label, action) {
+      return '<button type="button" onclick="' + action + '" class="px-4 py-3 rounded-xl bg-blue-600 text-white font-bold">' + label + '</button>';
+    }
+    function newLessonRender() {
+      const n = newLesson; if (!n) return;
+      const el = document.getElementById('srs-card');
+      const progress = document.getElementById('srs-progress-text');
+      const bar = document.getElementById('srs-progress-bar');
+      if (progress) progress.textContent = n.stage === 'intro' ? 'Làm quen ' + (n.intro + 1) + '/' + n.items.length : 'Luyện nhớ ' + Math.min(n.index + 1, n.tasks.length) + '/' + n.tasks.length;
+      if (bar) bar.style.width = Math.round((n.intro + n.index) / (n.items.length + n.tasks.length) * 100) + '%';
+      if (n.stage === 'intro') {
+        const it = n.items[n.intro];
+        el.innerHTML = '<div class="space-y-4"><h3 class="font-bold text-blue-800">🌱 Làm quen với từ mới</h3>' + srsDetailHTML(it) + '<p>Đọc, nghe và ghi nhớ nghĩa. Sau phần này bạn sẽ luyện trắc nghiệm, gõ chữ Hán và nối từ.</p>' + newLessonButton('Đã xem · Tiếp tục →', 'newLessonIntroNext()') + '</div>';
+        speakChineseText(it.word, true); return;
+      }
+      if (n.index >= n.tasks.length) { newLessonFinish(); return; }
+      const t = n.tasks[n.index]; n.answered = false; n.picked = null; n.matched = [];
+      let html = '';
+      if (t.type === 'choice') {
+        const it = srsWordItem(t.id);
+        t.options = srsShuffle([it].concat(srsDistractors(it, 'meaning')));
+        html = '<h3 class="font-bold">Chọn nghĩa tiếng Việt đúng</h3>' + srsMaskedHanzi(it.word) + '<div class="grid gap-2">' + t.options.map(function(o, i) { return newLessonButton(escapeHtml(o.meaning), 'newLessonAnswer(' + i + ')'); }).join('') + '</div>';
+      } else if (t.type === 'write') {
+        const it = srsWordItem(t.id);
+        html = '<h3 class="font-bold">Gõ từ tiếng Trung theo nghĩa tiếng Việt</h3><p class="text-2xl font-bold">' + escapeHtml(it.meaning) + '</p><p class="text-xs">Dùng bàn phím tiếng Trung để nhập chữ Hán, không nhập pinyin.</p><input id="new-word-input" autocomplete="off" class="w-full border rounded-xl p-3 text-2xl" placeholder="Nhập chữ Hán…" onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();newLessonAnswer();}" />' + newLessonButton('Kiểm tra', 'newLessonAnswer()');
+      } else {
+        t.left = srsShuffle(t.ids); t.right = srsShuffle(t.ids);
+        html = '<h3 class="font-bold">Nối từ với nghĩa</h3><p>Chọn chữ Hán bên trái, rồi chọn nghĩa tương ứng bên phải.</p><div class="grid grid-cols-2 gap-3"><div class="grid gap-2">' + t.left.map(function(id) { return '<button type="button" id="match-l-' + id + '" onclick="newLessonPick(' + id + ')" class="border rounded-xl p-3 text-2xl" style="font-family:HanziV2,sans-serif">' + escapeHtml(srsWordItem(id).word) + '</button>'; }).join('') + '</div><div class="grid gap-2">' + t.right.map(function(id) { return '<button type="button" id="match-r-' + id + '" onclick="newLessonMatch(' + id + ')" class="border rounded-xl p-3">' + escapeHtml(srsWordItem(id).meaning) + '</button>'; }).join('') + '</div></div>';
+      }
+      el.innerHTML = '<div class="space-y-4">' + html + '<div id="new-word-feedback" role="status"></div>' + (t.type !== 'match' ? '<button onclick="newLessonAnswer(-1)" class="text-slate-500 underline">Chưa nhớ · Xem đáp án</button>' : '') + '</div>';
+    }
+    function newLessonIntroNext() {
+      if (!newLesson || newLesson.stage !== 'intro') return;
+      newLesson.intro++;
+      if (newLesson.intro >= newLesson.items.length) newLesson.stage = 'quiz';
+      newLessonRender();
+    }
+    function newLessonAnswer(option) {
+      const n = newLesson; if (!n || n.answered || n.stage !== 'quiz') return;
+      const t = n.tasks[n.index]; if (!t || t.type === 'match') return;
+      const it = srsWordItem(t.id); let correct = false;
+      if (t.type === 'choice') correct = option >= 0 && t.options[option] && t.options[option].id === it.id;
+      else {
+        const inp = document.getElementById('new-word-input');
+        const val = (inp.value || '').normalize('NFKC').replace(/\s/g, '');
+        if (option !== -1 && !val) { inp.focus(); return; }
+        correct = option !== -1 && val === String(it.word).normalize('NFKC').replace(/\s/g, ''); inp.disabled = true;
+      }
+      n.answered = true; n.attempts++; if (correct) n.correct++;
+      if (!correct) {
+        const key = t.type + ':' + t.id; n.retries[key] = (n.retries[key] || 0) + 1;
+        if (n.retries[key] <= 2) n.tasks.push({id: t.id, type: t.type});
+      }
+      document.getElementById('new-word-feedback').innerHTML = '<p class="font-bold">' + (correct ? '✅ Chính xác!' : '💡 Đáp án đúng: ' + escapeHtml(it.word) + ' — ' + escapeHtml(it.meaning) + '. Hãy ghi nhớ và thử lại.') + '</p>' + srsDetailHTML(it) + newLessonButton('Tiếp tục →', 'newLessonNext()');
+      speakChineseText(it.word, true);
+    }
+    function newLessonNext() { if (!newLesson || !newLesson.answered) return; newLesson.index++; newLessonRender(); }
+    function newLessonPick(id) {
+      const n = newLesson; if (!n || n.answered || n.matched.includes(id)) return;
+      if (n.picked !== null) document.getElementById('match-l-' + n.picked).style.background = '';
+      n.picked = id; document.getElementById('match-l-' + id).style.background = '#dbeafe';
+    }
+    function newLessonMatch(id) {
+      const n = newLesson; if (!n || n.answered || n.picked === null || (n.tasks[n.index].usedRight || []).includes(id)) return;
+      const t = n.tasks[n.index], it = srsWordItem(n.picked);
+      n.attempts++;
+      // Accept equal meanings when different vocabulary entries share a translation.
+      if (String(it.meaning).trim() !== String(srsWordItem(id).meaning).trim()) { document.getElementById('new-word-feedback').textContent = 'Chưa đúng. Chọn lại nghĩa tương ứng nhé.'; return; }
+      n.correct++; n.matched.push(n.picked);
+      document.getElementById('match-l-' + n.picked).disabled = true;
+      document.getElementById('match-r-' + id).disabled = true;
+      document.getElementById('match-l-' + n.picked).style.background = '#dcfce7';
+      document.getElementById('match-r-' + id).style.background = '#dcfce7';
+      // Track right-side IDs independently for duplicated meanings.
+      t.usedRight = (t.usedRight || []); t.usedRight.push(id);
+      speakChineseText(it.word, true); n.picked = null;
+      document.getElementById('new-word-feedback').textContent = '✅ Nối đúng!';
+      if (n.matched.length === t.ids.length) { n.answered = true; document.getElementById('new-word-feedback').innerHTML += newLessonButton('Tiếp tục →', 'newLessonNext()'); }
+    }
+    function newLessonFinish() {
+      const n = newLesson, d = srsLoad(), now = Date.now();
+      n.items.forEach(function(it) { if (!d.cards[it.id]) { d.cards[it.id] = {state:'learning',interval:0,ease:2.5,reps:0,lapses:0,due:now+60000,added:now,last:now}; d.meta.newCount++; } });
+      srsSave(); newLesson = null; showSrsPanel('finish');
+      document.getElementById('srs-finish-summary').textContent = 'Hoàn thành ' + n.items.length + ' từ mới · Đúng ' + n.correct + '/' + n.attempts + ' lần trả lời. Các từ sẽ được ôn lại theo lịch.';
+      const remaining = srsNewPool().length;
+      document.getElementById('srs-finish-next').innerHTML = remaining ? 'Còn ' + remaining + ' từ mới.<br>' + newLessonButton('🌱 Học tiếp tối đa 10 từ', 'openNewWordsLesson()') : '🎉 Đã hết từ mới có đủ nội dung để học!';
+      updateSrsBadge();
     }
 
     function startSrsSession() {
+      if (newLesson) { showSrsPanel('session'); newLessonRender(); return; }
       const now = Date.now();
       const queue = srsDueCards(now).slice(0, SRS_SESSION_REVIEW_CAP).map(function(x) { return x.id; });
       // Ôn tập chỉ lấy tối đa 10 từ đã đến lịch; từ mới học ở mục riêng.
@@ -4336,6 +4417,8 @@
     }
 
     function endSrsSession() {
+      if (newLesson && !window.confirm('Thoát lượt học từ mới? Lượt chưa hoàn thành sẽ bắt đầu lại; các lượt trước vẫn được giữ.')) return;
+      newLesson = null;
       if (srsSession) srsSession.active = false;
       srsSession = null;
       showSrsPanel('dashboard');
@@ -4632,6 +4715,7 @@
     }
 
     document.addEventListener('keydown', function(e) {
+      if (newLesson) return;
       if (currentMainTab !== 'practice' || practiceMode !== 'srs' || !srsSession || !srsSession.active) return;
       const tag = (e.target && e.target.tagName) || '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
