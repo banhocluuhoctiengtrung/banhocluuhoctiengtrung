@@ -220,6 +220,7 @@
             <span>➕</span> <span>Thêm từ &amp; Điền nội dung</span>
             <span id="nav-incomplete-badge" class="hidden px-1.5 py-0.2 bg-amber-400 text-slate-900 rounded-full text-[11px] font-bold">1</span>
           </button>
+          <button type="button" id="nav-tab-new" onclick="openNewWordsLesson()" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-blue-100 hover:bg-white/10 flex items-center gap-1.5"><span>🌱</span><span>Học từ mới</span></button>
           <button type="button" id="nav-tab-practice" onclick="switchMainTab('practice')" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-blue-100 hover:bg-white/10 flex items-center gap-1.5">
             <span>🧠</span> <span>Ôn tập</span>
             <span id="nav-srs-badge" class="hidden px-1.5 py-0.2 bg-amber-400 text-slate-900 rounded-full text-[11px] font-bold">0</span>
@@ -2305,6 +2306,8 @@
     // =========================================================================
     function switchMainTab(tab) {
       currentMainTab = tab;
+      const newBtn = document.getElementById('nav-tab-new');
+      if (newBtn) newBtn.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-blue-100 hover:bg-white/10 flex items-center gap-1.5';
       const tabs = ['dict', 'manage', 'practice'];
       tabs.forEach(function(t) {
         const view = document.getElementById('view-' + t);
@@ -4286,6 +4289,30 @@
     }
 
     // ----- Phiên học -----
+    function openNewWordsLesson() {
+      // Reuse an active lesson rather than discard answers already in progress.
+      const previous = srsSession && srsSession.active ? srsSession : null;
+      practiceMode = 'srs';
+      switchMainTab('practice');
+      if (previous) {
+        srsSession = previous;
+        showSrsPanel('session');
+        showToast('Bạn đang có một phiên học. Hãy hoàn thành hoặc kết thúc phiên trước khi bắt đầu bài mới.', '🌱');
+        return;
+      }
+      const queue = srsNewPool().slice(0, srsNewAvailable()).map(function(it) { return it.id; });
+      if (!queue.length) {
+        showToast(srsNewPool().length ? 'Hôm nay bạn đã đạt mục tiêu từ mới. Bạn có thể điều chỉnh mục tiêu trong phần ôn tập.' : 'Bạn đã học hết từ mới trong bộ từ hiện tại.', '🌱');
+        return;
+      }
+      srsSession = { active: true, queue: queue, total: queue.length, done: 0, reviewed: 0, good: 0, learnedNew: 0, current: null, q: null, answered: false, qStart: 0, wrong: {} };
+      const btn = document.getElementById('nav-tab-new');
+      const review = document.getElementById('nav-tab-practice');
+      if (btn && review) { btn.className = review.className; review.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-blue-100 hover:bg-white/10 flex items-center gap-1.5'; }
+      showSrsPanel('session');
+      srsShowCurrent();
+    }
+
     function startSrsSession() {
       const now = Date.now();
       const queue = srsDueCards(now).slice(0, SRS_SESSION_REVIEW_CAP).map(function(x) { return x.id; });
