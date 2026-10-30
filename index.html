@@ -1587,7 +1587,7 @@
           window.speechSynthesis.cancel();
           const utter = new SpeechSynthesisUtterance(toSpeak);
           utter.lang = 'zh-CN';
-          utter.rate = 0.55;      // đọc chậm hơn (1 = tốc độ bình thường)
+          utter.rate = 0.85;      // đọc chậm hơn (1 = tốc độ bình thường)
           utter.volume = 1;      // to nhất mà trình duyệt cho phép
           utter.pitch = 1;
           try {
@@ -3951,7 +3951,7 @@
     const SRS_DAY = 86400000;
     const SRS_MATURE_DAYS = 21;
     const SRS_MAX_INTERVAL = 365;
-    const SRS_SESSION_REVIEW_CAP = 40;
+    const SRS_SESSION_REVIEW_CAP = 10;
 
     let srsData = null;       // { cards: {id: card}, meta: {...} }
     let srsSession = null;    // phiên đang chạy
@@ -4119,9 +4119,7 @@
     }
 
     function srsNewAvailable() {
-      const d = srsLoad();
-      const left = Math.max(0, srsDailyQuota() - d.meta.newCount);
-      return Math.min(left, srsNewPool().length);
+      return srsNewPool().length;
     }
 
     function updateSrsBadge() {
@@ -4199,9 +4197,9 @@
       setTxt('srs-stat-acc', st.n >= 5 ? Math.round(st.acc * 100) + '%' : '–');
 
       const btnAll = document.getElementById('srs-btn-start-all');
-      const total = due + newAvail;
+      const total = due;
       if (btnAll) {
-        btnAll.textContent = total > 0 ? '▶ Bắt đầu (' + due + ' ôn + ' + newAvail + ' mới)' : '▶ Bắt đầu';
+        btnAll.textContent = total > 0 ? '▶ Ôn ' + Math.min(due, SRS_SESSION_REVIEW_CAP) + ' từ' : '▶ Bắt đầu';
         btnAll.disabled = total === 0;
         btnAll.classList.toggle('opacity-40', total === 0);
       }
@@ -4212,13 +4210,12 @@
         ids.forEach(function(k) { const c = d.cards[k]; if (next === null || c.due < next) next = c.due; });
         if (next !== null) {
           hint = '✅ Hôm nay bạn đã ôn xong. Từ cần ôn kế tiếp: ' + srsNextTimeText(next, now) + '.';
-          if (srsNewPool().length > 0 && d.meta.newCount > 0) hint += ' App thấy hôm nay bạn đã học đủ từ mới.';
+          if (newAvail > 0) hint += ' Còn ' + newAvail + ' từ mới, bạn có thể học tiếp ở mục Học từ mới.';
         } else {
-          hint = 'Chưa có từ nào trong hệ thống.';
+          hint = 'Chưa có từ đã học để ôn. Bấm Học từ mới để bắt đầu.';
         }
       } else {
-        hint = 'App tự chọn từ cần ôn (ưu tiên từ sắp quên và từ hay sai), sau đó mới tới từ mới. Hôm nay đã học ' + d.meta.newCount + ' từ mới.';
-        if (due > 15 && st.n >= 0) hint += ' Vì đang tồn nhiều từ cần ôn nên app giảm số từ mới.';
+        hint = 'Mỗi lượt ôn tối đa 10 từ đến lịch, ưu tiên từ sắp quên và hay sai. Học từ mới không giới hạn ở mục riêng.';
       }
       setTxt('srs-start-hint', hint);
 
@@ -4300,12 +4297,12 @@
         showToast('Bạn đang có một phiên học. Hãy hoàn thành hoặc kết thúc phiên trước khi bắt đầu bài mới.', '🌱');
         return;
       }
-      const queue = srsNewPool().slice(0, srsNewAvailable()).map(function(it) { return it.id; });
+      const queue = srsNewPool().map(function(it) { return it.id; });
       if (!queue.length) {
-        showToast(srsNewPool().length ? 'Hôm nay bạn đã đạt mục tiêu từ mới. Bạn có thể điều chỉnh mục tiêu trong phần ôn tập.' : 'Bạn đã học hết từ mới trong bộ từ hiện tại.', '🌱');
+        showToast('Đã hết từ mới có đủ nội dung để học. Thêm từ hoặc bổ sung nghĩa để học tiếp.', '🌱');
         return;
       }
-      srsSession = { active: true, queue: queue, total: queue.length, done: 0, reviewed: 0, good: 0, learnedNew: 0, current: null, q: null, answered: false, qStart: 0, wrong: {} };
+      srsSession = { mode: 'new', active: true, queue: queue, total: queue.length, done: 0, reviewed: 0, good: 0, learnedNew: 0, current: null, q: null, answered: false, qStart: 0, wrong: {} };
       const btn = document.getElementById('nav-tab-new');
       const review = document.getElementById('nav-tab-practice');
       if (btn && review) { btn.className = review.className; review.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-blue-100 hover:bg-white/10 flex items-center gap-1.5'; }
@@ -4316,8 +4313,8 @@
     function startSrsSession() {
       const now = Date.now();
       const queue = srsDueCards(now).slice(0, SRS_SESSION_REVIEW_CAP).map(function(x) { return x.id; });
-      srsNewPool().slice(0, srsNewAvailable()).forEach(function(it) { queue.push(it.id); });
-      if (!queue.length) { showToast('Hiện chưa có từ nào cần học hoặc ôn.', 'ℹ️'); return; }
+      // Ôn tập chỉ lấy tối đa 10 từ đã đến lịch; từ mới học ở mục riêng.
+      if (!queue.length) { showToast('Chưa có từ đến lịch ôn. Bạn có thể vào Học từ mới để học tiếp.', 'ℹ️'); return; }
       srsSession = { active: true, queue: queue, total: queue.length, done: 0, reviewed: 0, good: 0, learnedNew: 0, current: null, q: null, answered: false, qStart: 0, wrong: {} };
       showSrsPanel('session');
       srsShowCurrent();
@@ -4410,7 +4407,7 @@
             '</div>' +
             srsDetailHTML(item) +
             '<button type="button" onclick="srsLearnNew()" class="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-sm">Đã nắm, ghi nhớ từ này →</button>' +
-            '<p class="text-center text-[11px] text-slate-500">Đọc kỹ câu chuyện chiết tự, rồi bấm nút trên. Lát nữa app sẽ hỏi lại để kiểm tra.</p>' +
+            '<p class="text-center text-[11px] text-slate-500">Đọc và nghe từ này, rồi bấm nút trên để học từ tiếp theo. Tiến độ được lưu để ôn sau.</p>' +
           '</div>';
         return;
       }
@@ -4491,8 +4488,12 @@
       srsSave();
       srsSession.learnedNew++;
       srsSession.queue.shift();
-      const pos = Math.min(srsSession.queue.length, 4);
-      srsSession.queue.splice(pos, 0, id);   // lát nữa hỏi lại
+      if (srsSession.mode === 'new') {
+        srsSession.done++;
+      } else {
+        const pos = Math.min(srsSession.queue.length, 4);
+        srsSession.queue.splice(pos, 0, id);
+      }
       srsShowCurrent();
     }
 
@@ -4609,7 +4610,7 @@
         (acc !== null ? ' · Đúng: ' + acc + '%' : ''));
       let next = null;
       Object.keys(d.cards).forEach(function(k) { const c = d.cards[k]; if (next === null || c.due < next) next = c.due; });
-      setTxt('srs-finish-next', next !== null ? 'Lần ôn kế tiếp: ' + srsNextTimeText(next, Date.now()) + '.' : '');
+      setTxt('srs-finish-next', sess && sess.mode === 'new' ? (srsNewPool().length ? 'Còn từ mới để học. Mở Học từ mới để tiếp tục.' : '🎉 Đã hết từ mới có đủ nội dung để học!') : (srsDueCards(Date.now()).length ? 'Còn từ đến lịch ôn. Bắt đầu lượt tiếp theo, tối đa 10 từ.' : (next !== null ? 'Lần ôn kế tiếp: ' + srsNextTimeText(next, Date.now()) + '.' : '')));
       if (srsSession) srsSession.active = false;
       srsSession = null;
       updateSrsBadge();
