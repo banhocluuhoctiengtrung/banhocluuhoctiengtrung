@@ -1571,6 +1571,11 @@
     }
 
     // Phát âm tiếng Trung bằng Web Speech API
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.addEventListener('voiceschanged', function() { window.speechSynthesis.getVoices(); });
+    }
+
     function speakChineseText(text, silent) {
       if (!text) return;
       // Chỉ lọc lấy phần chữ Hán nếu chuỗi có cả phiên âm/nghĩa
@@ -1581,12 +1586,16 @@
           window.speechSynthesis.cancel();
           const utter = new SpeechSynthesisUtterance(toSpeak);
           utter.lang = 'zh-CN';
-          utter.rate = 0.7;      // đọc chậm hơn (1 = tốc độ bình thường)
+          utter.rate = 0.55;      // đọc chậm hơn (1 = tốc độ bình thường)
           utter.volume = 1;      // to nhất mà trình duyệt cho phép
           utter.pitch = 1;
           try {
             const vs = window.speechSynthesis.getVoices() || [];
-            const v = vs.find(function(x) { return /^zh[-_]CN/i.test(x.lang) && !/hk|tw/i.test(x.lang); }) || vs.find(function(x) { return /^zh/i.test(x.lang); });
+            const ranked = vs.filter(function(x) { return /^(zh[-_]CN|cmn(?:[-_]|$)|zh[-_]Hans)/i.test(x.lang); }).sort(function(a, b) {
+              function score(v) { return (/natural|xiaoxiao|xiaoyi|tingting|google.*普通话|google.*mandarin/i.test(v.name) ? 10 : 0) + (/^zh[-_]CN$/i.test(v.lang) ? 3 : 0); }
+              return score(b) - score(a);
+            });
+            const v = ranked[0];
             if (v) utter.voice = v;
           } catch (e) {}
           window.speechSynthesis.speak(utter);
@@ -3684,7 +3693,7 @@
 
     function toggleFlashcardFlip() {
       const back = document.getElementById('fc-back-details');
-      if (back) back.classList.toggle('hidden');
+      if (back) { back.classList.toggle('hidden'); if (!back.classList.contains('hidden')) speakCurrentPracticeWord(); }
     }
 
     function markCurrentPracticeLearned() {
@@ -3727,6 +3736,7 @@
       const correctItem = vocabList.find(function(x) { return x.id === currentQuizCorrectId; });
       const isCorrect = selectedId === currentQuizCorrectId;
       if (isCorrect) quizScore += 1;
+      if (correctItem) speakChineseText(correctItem.word, true);
 
       const scoreBadge = document.getElementById('quiz-score-badge');
       if (scoreBadge) scoreBadge.textContent = 'Điểm: ' + quizScore + ' / ' + quizTotal;
@@ -4360,6 +4370,7 @@
       if (!el) return;
 
       if (!card) {
+        speakChineseText(item.word, true);
         // Từ mới: học trước (hiện đầy đủ thông tin)
         el.innerHTML =
           '<div class="space-y-4">' +
@@ -4426,7 +4437,7 @@
     function srsDetailHTML(item) {
       return '' +
         '<div class="flex items-center gap-4 bg-gradient-to-r from-blue-50/80 via-sky-50/40 to-white p-3.5 rounded-2xl border border-blue-100">' +
-          '<div class="zh-word-display shrink-0">' + escapeHtml(item.word) + '</div>' +
+          '<button type="button" class="zh-word-display shrink-0 cursor-pointer" title="Bấm để nghe lại" onclick="speakWordById(' + item.id + ', false)">' + escapeHtml(item.word) + '</button>' +
           '<div class="space-y-1 min-w-0 flex-1">' +
             '<div class="flex items-center gap-2 flex-wrap">' +
               '<span class="text-base font-bold text-blue-700">' + escapeHtml(item.pinyin || '') + '</span>' +
@@ -4511,6 +4522,7 @@
       const d = srsLoad();
       const card = d.cards[id];
       if (!item || !card) return;
+      speakChineseText(item.word, true); // đọc đáp án sau khi trả lời, không tiết lộ trước
       const now = Date.now();
       const ms = now - sess.qStart;
       const grade = srsAutoGrade(card, correct, ms, sess.q.type);
