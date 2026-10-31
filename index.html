@@ -182,6 +182,20 @@
     .sb-char-chip.active { background: #2563eb; border-color: #2563eb; color: #fff; }
     .sb-char-chip.done { border-color: #34d399; }
     .sb-char-chip.done::after { content: " ✓"; font-size: 0.8rem; }
+
+    /* New-word lessons use the available desktop width. */
+    #srs-session:has(.new-lesson-intro) { max-width: 1160px; }
+    .new-lesson-hero { display:flex; align-items:center; gap:24px; padding:20px; border:1px solid #bfdbfe; border-radius:20px; background:#eff6ff; }
+    .new-lesson-hero .zh-word-display { font-size:clamp(64px,7vw,112px); line-height:1.35; }
+    .new-lesson-hero .lesson-meaning { font-size:clamp(20px,2vw,28px); font-weight:800; color:#172554; }
+    .new-lesson-columns { display:grid; gap:16px; }
+    .new-lesson-columns > * { min-width:0; }
+    .new-lesson-notes { display:grid; align-content:start; gap:14px; }
+    .new-lesson-note { background:#f8fafc; border:1px solid #dbeafe; padding:16px; border-radius:16px; line-height:1.7; }
+    .new-lesson-actions { position:sticky; bottom:0; z-index:10; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:12px; border-top:1px solid #dbeafe; border-radius:14px; background:rgba(255,255,255,.97); box-shadow:0 -4px 16px #1e40af0a; }
+    @media(min-width:900px) { .new-lesson-columns { grid-template-columns:1fr 1fr; } .new-lesson-columns img { max-height:270px !important; object-fit:contain; } }
+    @media(max-width:600px) { .new-lesson-hero {gap:12px;padding:12px;} .new-lesson-actions {bottom:env(safe-area-inset-bottom,0px);} }
+
   </style>
 </head>
 <body class="min-h-screen flex flex-col bg-[#f0f7ff] text-slate-800">
@@ -4050,7 +4064,7 @@
     // App tự chấm dựa trên đúng/sai, tốc độ trả lời và lịch sử sai của từ
     function srsAutoGrade(card, correct, ms, type) {
       if (!correct) return 0;
-      const typed = type === 'typepy';
+      const typed = type === 'typehz';
       const fast = typed ? 12000 : 5000;
       const slow = typed ? 30000 : 14000;
       if (ms > slow) return 1;
@@ -4301,6 +4315,23 @@
     }
 
     // ----- Phiên học -----
+
+    function newLessonKeyboard(e) {
+      if (!newLesson || currentMainTab !== 'practice' || practiceMode !== 'srs' || e.defaultPrevented || e.repeat || e.isComposing || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+      if (e.key !== ' ' && e.key !== 'Enter') return;
+      const target = e.target;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      // Keep shortcuts inside the visible lesson, not a dialog or another control.
+      const panel = document.getElementById('srs-session');
+      if (!panel || panel.classList.contains('hidden')) return;
+      if (target && target.closest && target.closest('[role="dialog"], #stroke-modal, #backup-modal, #img-lightbox')) return;
+      const overlays = ['stroke-modal', 'backup-modal', 'img-lightbox'];
+      if (overlays.some(function(id) { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); })) return;
+      if (newLesson.stage === 'intro') { e.preventDefault(); e.stopPropagation(); newLessonIntroNext(); }
+      else if (newLesson.answered) { e.preventDefault(); e.stopPropagation(); newLessonNext(); }
+    }
+    document.addEventListener('keydown', newLessonKeyboard, true);
+
     var newLesson = null;
     function openNewWordsLesson() {
       practiceMode = 'srs';
@@ -4328,7 +4359,13 @@
       if (bar) bar.style.width = Math.round((n.intro + n.index) / (n.items.length + n.tasks.length) * 100) + '%';
       if (n.stage === 'intro') {
         const it = n.items[n.intro];
-        el.innerHTML = '<div class="space-y-4"><h3 class="font-bold text-blue-800">🌱 Làm quen với từ mới</h3>' + srsDetailHTML(it) + '<p>Đọc, nghe và ghi nhớ nghĩa. Sau phần này bạn sẽ luyện trắc nghiệm, gõ chữ Hán và nối từ.</p>' + newLessonButton('Đã xem · Tiếp tục →', 'newLessonIntroNext()') + '</div>';
+        el.innerHTML = '<div class="new-lesson-intro space-y-4"><h3 class="font-bold text-blue-800">🌱 Làm quen với từ mới</h3>' +
+          '<div class="new-lesson-hero"><button type="button" class="zh-word-display shrink-0" title="Nghe phát âm" onclick="speakWordById(' + it.id + ', false)">' + escapeHtml(it.word) + '</button><div class="min-w-0 space-y-2"><div class="text-xl font-bold text-blue-700">' + escapeHtml(it.pinyin || '') + '</div><div class="lesson-meaning">' + escapeHtml(it.meaning || '') + '</div><div class="text-sm text-blue-700">' + escapeHtml([it.hanviet, it.pos].filter(Boolean).join(' · ')) + '</div></div></div>' +
+          '<div class="new-lesson-columns"><div class="new-lesson-notes">' +
+          (it.story ? '<section class="new-lesson-note"><h4 class="font-bold text-blue-700">💡 Câu chuyện chiết tự</h4>' + formatMixedChineseText(it.story) + '</section>' : '') +
+          (it.example ? '<section class="new-lesson-note"><h4 class="font-bold text-blue-700">📝 Ví dụ</h4>' + formatExampleBlock(it.example) + '</section>' : '') +
+          '</div><div>' + wordImagesHTML(it, 270) + '</div></div>' +
+          '<div class="new-lesson-actions"><span class="text-sm text-slate-500">Đọc và nghe · Space / Enter để tiếp tục</span>' + newLessonButton('Đã xem · Tiếp tục →', 'newLessonIntroNext()') + '</div></div>';
         speakChineseText(it.word, true); return;
       }
       if (n.index >= n.tasks.length) { newLessonFinish(); return; }
@@ -4408,7 +4445,7 @@
     function startSrsSession() {
       if (newLesson) { showSrsPanel('session'); newLessonRender(); return; }
       const now = Date.now();
-      const queue = srsDueCards(now).slice(0, SRS_SESSION_REVIEW_CAP).map(function(x) { return x.id; });
+      const queue = srsDueCards(now).filter(function(x) { const it = srsWordItem(x.id); return it && String(it.pinyin || '').trim(); }).slice(0, SRS_SESSION_REVIEW_CAP).map(function(x) { return x.id; });
       // Ôn tập chỉ lấy tối đa 10 từ đã đến lịch; từ mới học ở mục riêng.
       if (!queue.length) { showToast('Chưa có từ đến lịch ôn. Bạn có thể vào Học từ mới để học tiếp.', 'ℹ️'); return; }
       srsSession = { active: true, queue: queue, total: queue.length, done: 0, reviewed: 0, good: 0, learnedNew: 0, current: null, q: null, answered: false, qStart: 0, wrong: {} };
@@ -4465,15 +4502,7 @@
     }
 
     function srsBuildQuestion(item, card) {
-      const reps = card.reps || 0;
-      let types = ['hz2mean'];
-      if (reps >= 1) types = ['hz2mean', 'mean2hz'];
-      if (reps >= 2 && item.pinyin) types = ['hz2mean', 'mean2hz', 'typepy'];
-      const type = types[Math.floor(Math.random() * types.length)];
-      if (type === 'typepy') return { type: type };
-      const mode = type === 'hz2mean' ? 'meaning' : 'word';
-      const opts = srsShuffle([item].concat(srsDistractors(item, mode)));
-      return { type: type, options: opts.map(function(o) { return o.id; }), correctIdx: opts.findIndex(function(o) { return o.id === item.id; }) };
+      return { type: 'typehz' };
     }
 
     function srsShowCurrent() {
@@ -4537,9 +4566,9 @@
           }).join('') + '</div>';
       } else {
         body =
-          '<div class="text-center py-3 space-y-1">' + srsMaskedHanzi(item.word) + '<div class="text-xs text-slate-500">Gõ Pinyin của từ này (không cần dấu cũng được, vd: xue xi)</div></div>' +
+          '<div class="text-center py-3 space-y-3"><div class="text-2xl font-bold text-blue-900">' + escapeHtml(item.meaning || '') + '</div><div class="text-xs text-slate-500">Gõ chữ Hán tương ứng với nghĩa trên. Dùng bàn phím tiếng Trung, không nhập pinyin.</div></div>' +
           '<div class="flex gap-2">' +
-            '<input type="text" id="srs-type-input" autocomplete="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key===\'Enter\'){event.preventDefault();srsSubmitTyped();}" placeholder="Pinyin..." class="flex-1 px-4 py-3 rounded-2xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />' +
+            '<input type="text" id="srs-type-input" autocomplete="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();srsSubmitTyped();}" placeholder="Nhập chữ Hán…" class="flex-1 px-4 py-3 rounded-2xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />' +
             '<button type="button" onclick="srsSubmitTyped()" class="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm">Kiểm tra</button>' +
           '</div>';
       }
@@ -4553,7 +4582,7 @@
           '<div id="srs-feedback" class="hidden space-y-4"></div>' +
           '<button type="button" id="srs-unknown-btn" onclick="srsDontKnow()" class="w-full py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 border border-dashed border-slate-300">Tôi không nhớ</button>' +
         '</div>';
-      if (q.type === 'typepy') setTimeout(function() { const inp = document.getElementById('srs-type-input'); if (inp) inp.focus(); }, 30);
+      if (q.type === 'typehz') setTimeout(function() { const inp = document.getElementById('srs-type-input'); if (inp) inp.focus(); }, 30);
     }
 
     function srsDetailHTML(item) {
@@ -4600,7 +4629,7 @@
     }
 
     function srsPickOption(i) {
-      if (!srsSession || !srsSession.q || srsSession.answered || srsSession.q.type === 'typepy') return;
+      if (!srsSession || !srsSession.q || srsSession.answered || srsSession.q.type === 'typehz') return;
       const correct = i === srsSession.q.correctIdx;
       const btns = document.querySelectorAll('#srs-card .srs-opt');
       btns.forEach(function(b, idx) {
@@ -4614,14 +4643,12 @@
     }
 
     function srsSubmitTyped() {
-      if (!srsSession || !srsSession.q || srsSession.answered || srsSession.q.type !== 'typepy') return;
+      if (!srsSession || !srsSession.q || srsSession.answered || srsSession.q.type !== 'typehz') return;
       const inp = document.getElementById('srs-type-input');
-      const val = srsNormPinyin(inp ? inp.value : '');
+      const val = String(inp ? inp.value : '').normalize('NFKC').replace(/\s/g, '');
       if (!val) { if (inp) inp.focus(); return; }
       const item = srsWordItem(srsSession.current);
-      const variants = String(item.pinyin || '').split(/[\/,;|]/).map(srsNormPinyin).filter(Boolean);
-      variants.push(srsNormPinyin(item.pinyin));
-      const correct = variants.indexOf(val) !== -1;
+      const correct = val === String(item.word || '').normalize('NFKC').replace(/\s/g, '');
       if (inp) { inp.disabled = true; inp.className += correct ? ' bg-emerald-50 border-emerald-400' : ' bg-rose-50 border-rose-400'; }
       srsAnswer(correct);
     }
@@ -4680,7 +4707,7 @@
         msg = '<div class="rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-900"><b>✅ Chính xác!</b> App sẽ cho bạn gặp lại từ này <b>' + srsFormatNext(updated, now) + '</b>.</div>';
       } else {
         const extra = updated.lapses >= 3 ? ' Đây là từ khó, app sẽ cho ôn dày hơn.' : '';
-        msg = '<div class="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-900"><b>❌ Chưa đúng.</b> Đáp án: <b>' + escapeHtml(sess.q.type === 'typepy' ? (item.pinyin || '') : (sess.q.type === 'mean2hz' ? item.word : item.meaning)) + '</b>. Từ này sẽ quay lại <b>' + (updated.state === 'learning' && (sess.wrong[id] || 0) < 3 ? 'ngay trong phiên này' : srsFormatNext(updated, now)) + '</b>.' + extra + '</div>';
+        msg = '<div class="rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-900"><b>❌ Chưa đúng.</b> Đáp án: <b>' + escapeHtml(sess.q.type === 'typehz' ? (item.word || '') : (sess.q.type === 'mean2hz' ? item.word : item.meaning)) + '</b>. Từ này sẽ quay lại <b>' + (updated.state === 'learning' && (sess.wrong[id] || 0) < 3 ? 'ngay trong phiên này' : srsFormatNext(updated, now)) + '</b>.' + extra + '</div>';
       }
       fb.classList.remove('hidden');
       fb.innerHTML = msg + srsDetailHTML(item) +
@@ -4726,7 +4753,7 @@
       if (e.key === ' ' || e.key === 'Enter') {
         if (isNew) { e.preventDefault(); srsLearnNew(); }
         else if (srsSession.answered) { e.preventDefault(); srsNext(); }
-      } else if (!isNew && !srsSession.answered && srsSession.q && srsSession.q.type !== 'typepy' && ['1', '2', '3', '4'].indexOf(e.key) !== -1) {
+      } else if (!isNew && !srsSession.answered && srsSession.q && srsSession.q.type !== 'typehz' && ['1', '2', '3', '4'].indexOf(e.key) !== -1) {
         e.preventDefault();
         srsPickOption(parseInt(e.key, 10) - 1);
       }
