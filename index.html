@@ -196,12 +196,25 @@
     @media(min-width:900px) { .new-lesson-columns { grid-template-columns:1fr 1fr; } .new-lesson-columns img { max-height:270px !important; object-fit:contain; } }
     @media(max-width:600px) { .new-lesson-hero {gap:12px;padding:12px;} .new-lesson-actions {bottom:env(safe-area-inset-bottom,0px);} }
 
+
+    body.compact-page #site-header, body.compact-page #site-stats { display:none; }
+    body.compact-page main { padding-top:12px; }
+    #view-practice:has(#srs-session:not(.hidden)) > div:first-child { display:none; }
+    .lesson-tags { display:flex; gap:8px; flex-wrap:wrap; }
+    .lesson-tag { display:inline-block; font-size:13px; font-weight:700; padding:4px 10px; border:1px solid; border-radius:7px; }
+    .lesson-tag-hv { color:#4338ca; background:#eef2ff; border-color:#c7d2fe; text-transform:uppercase; }
+    .lesson-tag-pos { color:#0369a1; background:#f0f9ff; border-color:#bae6fd; }
+    .new-lesson-note { margin:0; }
+    .new-lesson-columns > :only-child { grid-column:1 / -1; }
+    .lesson-image-row img { max-height:240px !important; object-fit:contain; }
+    .new-lesson-hero .zh-word-display { max-width:50%; overflow-wrap:anywhere; }
+
   </style>
 </head>
 <body class="min-h-screen flex flex-col bg-[#f0f7ff] text-slate-800">
 
   <!-- HEADER: LOGO (trái) + CÁC TAB (phải) -->
-  <header class="blue-hero-gradient text-white shadow-lg lg:sticky lg:top-0 z-30">
+  <header id="site-header" class="blue-hero-gradient text-white shadow-lg lg:sticky lg:top-0 z-30">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <!-- Logo -->
@@ -259,9 +272,10 @@
       </div>
     </div>
   </header>
+  <div id="compact-home" class="hidden max-w-7xl w-full mx-auto px-4 sm:px-6 pt-3"><button type="button" onclick="switchMainTab('dict'); window.scrollTo(0,0);" title="Về trang chủ" aria-label="Về trang chủ" class="w-11 h-11 rounded-xl bg-white border border-blue-200 text-blue-700 shadow-sm flex items-center justify-center text-2xl">🏠</button></div>
 
   <!-- BANNER THỐNG KÊ NHANH -->
-  <section class="bg-white border-b border-blue-100 shadow-sm">
+  <section id="site-stats" class="bg-white border-b border-blue-100 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
       <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
         <button type="button" onclick="quickFilterLevel('ALL')" class="flex flex-col items-start p-2.5 rounded-xl bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200/80 transition text-left">
@@ -2335,6 +2349,9 @@
     // =========================================================================
     function switchMainTab(tab) {
       currentMainTab = tab;
+      const compact = tab !== 'dict';
+      document.body.classList.toggle('compact-page', compact);
+      document.getElementById('compact-home').classList.toggle('hidden', !compact);
       const newBtn = document.getElementById('nav-tab-new');
       if (newBtn) newBtn.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-blue-100 hover:bg-white/10 flex items-center gap-1.5';
       const tabs = ['dict', 'manage', 'practice'];
@@ -4360,11 +4377,11 @@
       if (n.stage === 'intro') {
         const it = n.items[n.intro];
         el.innerHTML = '<div class="new-lesson-intro space-y-4"><h3 class="font-bold text-blue-800">🌱 Làm quen với từ mới</h3>' +
-          '<div class="new-lesson-hero"><button type="button" class="zh-word-display shrink-0" title="Nghe phát âm" onclick="speakWordById(' + it.id + ', false)">' + escapeHtml(it.word) + '</button><div class="min-w-0 space-y-2"><div class="text-xl font-bold text-blue-700">' + escapeHtml(it.pinyin || '') + '</div><div class="lesson-meaning">' + escapeHtml(it.meaning || '') + '</div><div class="text-sm text-blue-700">' + escapeHtml([it.hanviet, it.pos].filter(Boolean).join(' · ')) + '</div></div></div>' +
-          '<div class="new-lesson-columns"><div class="new-lesson-notes">' +
+          '<div class="new-lesson-hero"><button type="button" class="zh-word-display shrink-0" title="Nghe phát âm" onclick="speakWordById(' + it.id + ', false)">' + escapeHtml(it.word) + '</button><div class="min-w-0 space-y-2"><div class="text-xl font-bold text-blue-700">' + escapeHtml(it.pinyin || '') + '</div><div class="lesson-meaning">' + escapeHtml(it.meaning || '') + '</div><div class="lesson-tags">' + (it.hanviet ? '<span class="lesson-tag lesson-tag-hv">' + escapeHtml(it.hanviet) + '</span>' : '') + (it.pos ? '<span class="lesson-tag lesson-tag-pos">' + escapeHtml(it.pos) + '</span>' : '') + '</div></div></div>' +
+          '<div class="new-lesson-columns">' +
           (it.story ? '<section class="new-lesson-note"><h4 class="font-bold text-blue-700">💡 Câu chuyện chiết tự</h4>' + formatMixedChineseText(it.story) + '</section>' : '') +
           (it.example ? '<section class="new-lesson-note"><h4 class="font-bold text-blue-700">📝 Ví dụ</h4>' + formatExampleBlock(it.example) + '</section>' : '') +
-          '</div><div>' + wordImagesHTML(it, 270) + '</div></div>' +
+          '</div><div class="lesson-image-row">' + wordImagesHTML(it, 240) + '</div>' +
           '<div class="new-lesson-actions"><span class="text-sm text-slate-500">Đọc và nghe · Space / Enter để tiếp tục</span>' + newLessonButton('Đã xem · Tiếp tục →', 'newLessonIntroNext()') + '</div></div>';
         speakChineseText(it.word, true); return;
       }
