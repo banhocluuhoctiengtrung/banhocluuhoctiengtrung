@@ -219,7 +219,10 @@
     .review-level { background:#e7efff; border-color:#bdcffa; color:#325ec2; }
     @media(max-width:600px) { .review-prompt {padding:24px 14px;} .review-tags {gap:8px;margin-top:20px;} .review-tag {padding:7px 12px;font-size:14px;} }
 
+.hw-candidate {font-size:30px;padding:6px 12px;border:1px solid #c7d2fe;border-radius:10px;background:#eef2ff;color:#1e3a8a;}
   </style>
+<script defer src="handwriting/hanzilookup.min.js"></script>
+<script defer src="handwriting/input.js"></script>
 </head>
 <body class="min-h-screen flex flex-col bg-[#f0f7ff] text-slate-800">
 
@@ -4600,9 +4603,15 @@
               (item.pos ? '<span class="review-tag review-pos">' + escapeHtml(item.pos) + '</span>' : '') +
               '<span class="review-tag review-level">' + escapeHtml(item.level || 'HSK1') + '</span>' +
             '</div></div>' +
-          '<div class="flex gap-2">' +
-            '<input type="text" id="srs-type-input" autocomplete="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();srsSubmitTyped();}" placeholder="Nhập chữ Hán…" class="flex-1 px-4 py-3 rounded-2xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />' +
-            '<button type="button" onclick="srsSubmitTyped()" class="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm">Kiểm tra</button>' +
+          '<div class="space-y-3">' +
+            '<label for="srs-pinyin-input" class="block text-sm font-bold text-blue-800">Pinyin</label>' +
+            '<input type="text" id="srs-pinyin-input" lang="zh-Latn" inputmode="text" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();toggleLessonHandwriting(false);}" placeholder="Pinyin có dấu hoặc không dấu…" class="w-full px-4 py-3 rounded-2xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />' +
+            '<label for="srs-type-input" class="block text-sm font-bold text-blue-800">Chữ Hán</label>' +
+            '<input type="text" id="srs-type-input" readonly onclick="toggleLessonHandwriting(false)" lang="zh-CN" inputmode="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();srsSubmitTyped();}" placeholder="Nhập chữ Hán…" class="w-full px-4 py-3 rounded-2xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />' +
+            '<div class="flex gap-2 flex-wrap"><button type="button" onclick="toggleLessonHandwriting(false)" class="lesson-tag lesson-tag-pos">✍️ Viết tay</button><button type="button" onclick="toggleLessonHandwriting(true)" class="lesson-tag lesson-tag-pos">⌨️ Gõ</button><button type="button" onclick="deleteLessonCharacter()" class="lesson-tag lesson-tag-pos">Xóa chữ cuối</button></div>' +
+            '<div id="hw-panel" hidden><div class="flex flex-wrap gap-4 items-start"><canvas id="hw-canvas" width="300" height="300" aria-label="Khung viết chữ Hán" style="width:min(100%,300px);height:auto;touch-action:none;background:white;border:2px solid #bfdbfe;border-radius:16px"></canvas><div class="flex-1 min-w-0 space-y-3"><p class="text-sm text-slate-500">Viết một chữ, chọn chữ gợi ý rồi viết chữ tiếp theo.</p><div id="hw-results" class="flex flex-wrap gap-2" role="status">Viết từng chữ vào khung.</div><button type="button" onclick="eraseLessonStroke(false)" class="lesson-tag lesson-tag-pos">Xóa nét cuối</button> <button type="button" onclick="eraseLessonStroke(true)" class="lesson-tag lesson-tag-pos">Viết lại</button></div></div></div>' +
+            '<div id="srs-dual-result" role="status" class="text-sm space-y-1"></div>' +
+            '<button type="button" onclick="srsSubmitTyped()" class="w-full px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm">Kiểm tra</button>' +
           '</div>';
       }
 
@@ -4615,7 +4624,7 @@
           '<div id="srs-feedback" class="hidden space-y-4"></div>' +
           '<button type="button" id="srs-unknown-btn" onclick="srsDontKnow()" class="w-full py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 border border-dashed border-slate-300">Tôi không nhớ</button>' +
         '</div>';
-      if (q.type === 'typehz') setTimeout(function() { const inp = document.getElementById('srs-type-input'); if (inp) inp.focus(); }, 30);
+      if (q.type === 'typehz') setTimeout(function() { const inp = document.getElementById('srs-pinyin-input'); if (inp) inp.focus(); }, 30);
     }
 
     function srsDetailHTML(item) {
@@ -4677,16 +4686,28 @@
 
     function srsSubmitTyped() {
       if (!srsSession || !srsSession.q || srsSession.answered || srsSession.q.type !== 'typehz') return;
-      const inp = document.getElementById('srs-type-input');
-      const val = String(inp ? inp.value : '').normalize('NFKC').replace(/\s/g, '');
-      if (!val) { if (inp) inp.focus(); return; }
+      const hanziInput = document.getElementById('srs-type-input');
+      const pinyinInput = document.getElementById('srs-pinyin-input');
       const item = srsWordItem(srsSession.current);
-      const correct = val === String(item.word || '').normalize('NFKC').replace(/\s/g, '');
-      if (inp) { inp.disabled = true; inp.className += correct ? ' bg-emerald-50 border-emerald-400' : ' bg-rose-50 border-rose-400'; }
-      srsAnswer(correct);
+      if (!pinyinInput.value.trim() && item.pinyin) { pinyinInput.focus(); return; }
+      if (!hanziInput.value.trim()) { hanziInput.focus(); return; }
+      const hanziCorrect = hanziInput.value.normalize('NFKC').replace(/\s/g, '') === String(item.word).normalize('NFKC').replace(/\s/g, '');
+      const expectedPinyin = String(item.pinyin || '');
+      const pinyinVariants = expectedPinyin.split(/[\/,;|]/).concat([expectedPinyin]).map(srsNormPinyin).filter(Boolean);
+      const pinyinCorrect = !expectedPinyin || pinyinVariants.includes(srsNormPinyin(pinyinInput.value));
+      [[pinyinInput, pinyinCorrect], [hanziInput, hanziCorrect]].forEach(function(pair) {
+        pair[0].disabled = true;
+        pair[0].className += pair[1] ? ' bg-emerald-50 border-emerald-400' : ' bg-rose-50 border-rose-400';
+      });
+      document.getElementById('srs-dual-result').innerHTML =
+        '<p>' + (pinyinCorrect ? '✅ Pinyin đúng' : '❌ Pinyin đúng là ' + escapeHtml(expectedPinyin)) + '</p>' +
+        '<p>' + (hanziCorrect ? '✅ Chữ Hán đúng' : '❌ Chữ Hán đúng là ' + escapeHtml(item.word)) + '</p>';
+      srsAnswer(pinyinCorrect && hanziCorrect);
     }
 
     function srsDontKnow() {
+      const pinyinInput = document.getElementById('srs-pinyin-input');
+      if (pinyinInput) pinyinInput.disabled = true;
       if (!srsSession || !srsSession.q || srsSession.answered) return;
       const btns = document.querySelectorAll('#srs-card .srs-opt');
       btns.forEach(function(b, idx) {
