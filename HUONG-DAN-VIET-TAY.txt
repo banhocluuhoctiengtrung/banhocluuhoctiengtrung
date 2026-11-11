@@ -1,6 +1,0 @@
-BẢN THỬ VIẾT TAY
-Giải nén. Đưa index.html và toàn bộ thư mục handwriting lên cùng thư mục gốc của kho GitHub. Giữ nguyên các file font, từ vựng và ảnh đang có. Không chỉ đưa file ZIP lên GitHub.
-Ở ô Pinyin, gõ bằng bàn phím bình thường. Bấm ô Chữ Hán hoặc nút Viết tay để mở khung. Viết từng chữ, chọn kết quả gợi ý rồi viết chữ tiếp theo. Có thể chuyển sang Gõ.
-Dữ liệu nhận diện chỉ tải khi mở khung viết tay. Chạy nhận diện trên thiết bị, không gửi nét viết đến dịch vụ ngoài. Cần mở qua website GitHub Pages để tải dữ liệu, không mở index.html trực tiếp bằng file://.
-Bản thử đã kiểm tra cú pháp và chạy bộ nhận diện với dữ liệu thật. Chưa thử thao tác cảm ứng trên điện thoại. Nhận diện dựa vào hình dạng và thứ tự nét, có thể cần viết lại.
-Thư viện HanziLookupJS từ https://github.com/gugray/HanziLookupJS, giấy phép GPL. Dữ liệu mmah theo Arphic Public License. Giữ các file LICENSE, LICENSE-APL và README.md trong handwriting khi phân phối. Bản tích hợp này được cung cấp theo GPL-3.0-or-later, mã nguồn gồm index.html và handwriting/input.js. Chi tiết giấy phép trong handwriting/LICENSE.
