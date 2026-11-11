@@ -209,6 +209,16 @@
     .lesson-image-row img { max-height:240px !important; object-fit:contain; }
     .new-lesson-hero .zh-word-display { max-width:50%; overflow-wrap:anywhere; }
 
+
+    .review-prompt { border:1.5px solid #cddcff; border-radius:28px; background:linear-gradient(180deg,#fafbff,#eef4ff); padding:30px 22px; text-align:center; }
+    .review-meaning { color:#243e8d; font-size:clamp(26px,3.3vw,42px); font-weight:800; line-height:1.4; overflow-wrap:anywhere; }
+    .review-tags { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:12px; margin-top:24px; }
+    .review-tag { display:inline-block; padding:8px 16px; border:1.5px solid; border-radius:12px; font-size:16px; font-weight:700; line-height:1.4; }
+    .review-hanviet { background:#f0ecff; border-color:#d2c6fa; color:#6650b6; text-transform:uppercase; }
+    .review-pos { background:#fff; border-color:#c9d8f7; color:#4262a6; }
+    .review-level { background:#e7efff; border-color:#bdcffa; color:#325ec2; }
+    @media(max-width:600px) { .review-prompt {padding:24px 14px;} .review-tags {gap:8px;margin-top:20px;} .review-tag {padding:7px 12px;font-size:14px;} }
+
   </style>
 </head>
 <body class="min-h-screen flex flex-col bg-[#f0f7ff] text-slate-800">
@@ -4583,14 +4593,13 @@
           }).join('') + '</div>';
       } else {
         body =
-          '<div class="rounded-2xl border border-blue-100 bg-blue-50/60 px-4 py-4 space-y-3">' +
-            '<div class="lesson-tags">' +
-              '<span class="lesson-tag ' + getLevelBadgeClass(item.level) + '">' + escapeHtml(item.level || 'HSK1') + '</span>' +
-              (item.pos ? '<span class="lesson-tag lesson-tag-pos">' + escapeHtml(item.pos) + '</span>' : '') +
-            '</div><div class="flex items-center flex-wrap gap-2">' +
-              (item.pinyin ? '<span class="text-xl font-bold text-blue-700">' + escapeHtml(item.pinyin) + '</span>' : '') +
-              (item.hanviet ? '<span class="lesson-tag lesson-tag-hv">' + escapeHtml(item.hanviet) + '</span>' : '') +
-            '</div><div class="text-2xl font-bold text-blue-900 break-words">' + escapeHtml(item.meaning || '') + '</div></div>' +
+          '<div class="review-prompt">' +
+            '<div class="review-meaning">' + escapeHtml(item.meaning || '') + '</div>' +
+            '<div class="review-tags">' +
+              (item.hanviet ? '<span class="review-tag review-hanviet">' + escapeHtml(item.hanviet) + '</span>' : '') +
+              (item.pos ? '<span class="review-tag review-pos">' + escapeHtml(item.pos) + '</span>' : '') +
+              '<span class="review-tag review-level">' + escapeHtml(item.level || 'HSK1') + '</span>' +
+            '</div></div>' +
           '<div class="flex gap-2">' +
             '<input type="text" id="srs-type-input" autocomplete="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();srsSubmitTyped();}" placeholder="Nhập chữ Hán…" class="flex-1 px-4 py-3 rounded-2xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />' +
             '<button type="button" onclick="srsSubmitTyped()" class="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm">Kiểm tra</button>' +
