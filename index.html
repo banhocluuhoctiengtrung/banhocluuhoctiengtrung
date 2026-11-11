@@ -4723,7 +4723,9 @@
       const syllable = pinyinCurrentSyllable(input);
       if (!syllable) return;
       const replacement = pinyinToneCandidate(syllable.text, tone);
-      input.setRangeText(replacement, syllable.start, syllable.end, 'end');
+      const suffix = input.value.slice(syllable.end);
+      const separator = !suffix || !/^[\s’']/.test(suffix) ? ' ' : '';
+      input.setRangeText(replacement + separator, syllable.start, syllable.end, 'end');
       input.focus();
       updatePinyinCandidates(input);
     }
@@ -4785,6 +4787,16 @@
       srsAnswer(correct);
     }
 
+
+    function normalizeReviewPinyin(value) {
+      return String(value || '').toLowerCase().normalize('NFC')
+        .replace(/u:/g, 'ü').replace(/v/g, 'ü')
+        .replace(/([a-zü]+)([1-5])/g, function(all, syllable, tone) {
+          return tone === '5' ? syllable : pinyinToneCandidate(syllable, Number(tone));
+        })
+        .replace(/[\s'’·-]/g, '').normalize('NFC');
+    }
+
     function srsSubmitTyped() {
       if (!srsSession || !srsSession.q || srsSession.answered || srsSession.q.type !== 'typehz') return;
       const hanziInput = document.getElementById('srs-type-input');
@@ -4794,8 +4806,8 @@
       if (!hanziInput.value.trim()) { hanziInput.focus(); return; }
       const hanziCorrect = hanziInput.value.normalize('NFKC').replace(/\s/g, '') === String(item.word).normalize('NFKC').replace(/\s/g, '');
       const expectedPinyin = String(item.pinyin || '');
-      const pinyinVariants = expectedPinyin.split(/[\/,;|]/).concat([expectedPinyin]).map(srsNormPinyin).filter(Boolean);
-      const pinyinCorrect = !expectedPinyin || pinyinVariants.includes(srsNormPinyin(pinyinInput.value));
+      const pinyinVariants = expectedPinyin.split(/[\/,;|]/).concat([expectedPinyin]).map(normalizeReviewPinyin).filter(Boolean);
+      const pinyinCorrect = !expectedPinyin || pinyinVariants.includes(normalizeReviewPinyin(pinyinInput.value));
       [[pinyinInput, pinyinCorrect], [hanziInput, hanziCorrect]].forEach(function(pair) {
         pair[0].disabled = true;
         pair[0].className += pair[1] ? ' bg-emerald-50 border-emerald-400' : ' bg-rose-50 border-rose-400';
