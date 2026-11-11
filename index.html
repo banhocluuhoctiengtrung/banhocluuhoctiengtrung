@@ -220,6 +220,9 @@
     @media(max-width:600px) { .review-prompt {padding:24px 14px;} .review-tags {gap:8px;margin-top:20px;} .review-tag {padding:7px 12px;font-size:14px;} }
 
 .hw-candidate {font-size:30px;padding:6px 12px;border:1px solid #c7d2fe;border-radius:10px;background:#eef2ff;color:#1e3a8a;}
+    .pinyin-candidates {display:flex;flex-wrap:wrap;gap:8px;}
+    .pinyin-tone-choice {padding:9px 16px;background:#eef2ff;color:#2447a7;border:1px solid #c7d2fe;border-radius:12px;font-size:18px;font-weight:600;}
+    .pinyin-tone-choice:hover {background:#dbeafe;}
   </style>
 <!-- HanziLookupJS https://github.com/gugray/HanziLookupJS; GPL. Data under Arphic Public License. -->
 <script type="text/plain" id="handwriting-license">                    GNU GENERAL PUBLIC LICENSE
@@ -14985,7 +14988,8 @@ var HanziLookup=HanziLookup||{};HanziLookup.SubStroke=function(t,i,n,o){"use str
             '</div></div>' +
           '<div class="space-y-3">' +
             '<label for="srs-pinyin-input" class="block text-sm font-bold text-blue-800">Pinyin</label>' +
-            '<input type="text" id="srs-pinyin-input" lang="zh-Latn" inputmode="text" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();toggleLessonHandwriting(false);}" placeholder="Pinyin có dấu hoặc không dấu…" class="w-full px-4 py-3 rounded-2xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />' +
+            '<input type="text" id="srs-pinyin-input" lang="en" inputmode="text" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();toggleLessonHandwriting(false);}" placeholder="Gõ ni → chọn nī, ní, nǐ, nì" class="w-full px-4 py-3 rounded-2xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />' +
+            '<div id="pinyin-candidates" class="pinyin-candidates" aria-label="Chọn thanh điệu pinyin"></div>' +
             '<label for="srs-type-input" class="block text-sm font-bold text-blue-800">Chữ Hán</label>' +
             '<input type="text" id="srs-type-input" readonly onclick="toggleLessonHandwriting(false)" lang="zh-CN" inputmode="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();srsSubmitTyped();}" placeholder="Nhập chữ Hán…" class="w-full px-4 py-3 rounded-2xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />' +
             '<div class="flex gap-2 flex-wrap"><button type="button" onclick="toggleLessonHandwriting(false)" class="lesson-tag lesson-tag-pos">✍️ Viết tay</button><button type="button" onclick="toggleLessonHandwriting(true)" class="lesson-tag lesson-tag-pos">⌨️ Gõ</button><button type="button" onclick="deleteLessonCharacter()" class="lesson-tag lesson-tag-pos">Xóa chữ cuối</button></div>' +
@@ -15045,6 +15049,75 @@ var HanziLookup=HanziLookup||{};HanziLookup.SubStroke=function(t,i,n,o){"use str
       }
       srsShowCurrent();
     }
+
+    function pinyinToneCandidate(syllable, tone) {
+      const plain = syllable.normalize('NFD').replace(/[\u0300\u0301\u0304\u030c]/g, '').normalize('NFC').replace(/u:/gi, 'ü').replace(/v/gi, 'ü');
+      const lower = plain.toLowerCase();
+      let position = lower.indexOf('a');
+      if (position < 0) position = lower.indexOf('e');
+      if (position < 0 && lower.includes('ou')) position = lower.indexOf('o');
+      if (position < 0) {
+        for (let i = lower.length - 1; i >= 0; i--) {
+          if ('iouü'.includes(lower[i])) { position = i; break; }
+        }
+      }
+      if (position < 0) return plain;
+      const marks = ['\u0304', '\u0301', '\u030c', '\u0300'];
+      return (plain.slice(0, position + 1) + marks[tone - 1] + plain.slice(position + 1)).normalize('NFC');
+    }
+
+    function pinyinCurrentSyllable(input) {
+      if (input.selectionStart !== input.selectionEnd) return null;
+      const cursor = input.selectionStart;
+      const match = input.value.slice(0, cursor).match(/[a-züvāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ:]+$/i);
+      if (!match || !/[aeiouüvāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ]/i.test(match[0])) return null;
+      // A space or apostrophe separates syllables, e.g. biao yan / xi'an.
+      return {text: match[0], start: cursor - match[0].length, end: cursor};
+    }
+
+    function updatePinyinCandidates(input) {
+      const box = document.getElementById('pinyin-candidates');
+      if (!box) return;
+      box.replaceChildren();
+      const syllable = pinyinCurrentSyllable(input);
+      if (!syllable || input.disabled) return;
+      for (let tone = 1; tone <= 4; tone++) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'pinyin-tone-choice';
+        button.textContent = tone + '  ' + pinyinToneCandidate(syllable.text, tone);
+        button.onpointerdown = function (event) { event.preventDefault(); };
+        button.onclick = function () { choosePinyinTone(tone); };
+        box.appendChild(button);
+      }
+    }
+
+    function choosePinyinTone(tone) {
+      const input = document.getElementById('srs-pinyin-input');
+      if (!input || input.disabled) return;
+      const syllable = pinyinCurrentSyllable(input);
+      if (!syllable) return;
+      const replacement = pinyinToneCandidate(syllable.text, tone);
+      input.setRangeText(replacement, syllable.start, syllable.end, 'end');
+      input.focus();
+      updatePinyinCandidates(input);
+    }
+
+    document.addEventListener('input', function (event) {
+      if (event.target.id === 'srs-pinyin-input' && !event.isComposing) updatePinyinCandidates(event.target);
+    });
+    document.addEventListener('compositionend', function (event) {
+      if (event.target.id === 'srs-pinyin-input') updatePinyinCandidates(event.target);
+    });
+    document.addEventListener('click', function (event) {
+      if (event.target.id === 'srs-pinyin-input') updatePinyinCandidates(event.target);
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.target.id !== 'srs-pinyin-input' || event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (/^[1-4]$/.test(event.key) && pinyinCurrentSyllable(event.target)) {
+        event.preventDefault(); choosePinyinTone(Number(event.key));
+      }
+    });
 
     function srsNormPinyin(str) {
       return stripAccents(String(str || '')).replace(/ü/g, 'u').replace(/v/g, 'u').replace(/[0-9\s'’·\-]/g, '');
